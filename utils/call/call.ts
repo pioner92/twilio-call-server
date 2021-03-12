@@ -2,48 +2,54 @@ import {connectConferenceTwiml} from "../conference/connect-conference-twiml";
 import {Twilio} from "twilio";
 import express from "express";
 import {CallListInstanceCreateOptions} from "twilio/lib/rest/api/v2010/account/call";
+import {ConfigSchemaType} from "../../schema-db/config-schema-db";
+import {getTwilioClient} from "../get-twilio-client";
 
 type callDataType = {
     res: express.Response
-    auth: { Account_Sid: string, Auth_Token: string }
+    companyData: ConfigSchemaType | undefined
     from: string
     number: string
     url: string
     urlEvent?: string
     statuses?: string[] | string
-    timeout:number
-    callerId:string
-    conferenceId:string
+    timeout: number
+    callerId: string
+    conferenceId: string
 }
 
-export const call = ({res, from, auth, number, url, urlEvent, statuses,timeout,conferenceId}: callDataType) => {
+export const call = async ({res, companyData, from, number, url, urlEvent, statuses, timeout, conferenceId}: callDataType) => {
 
-    const client: Twilio = require("twilio")(auth.Account_Sid, auth.Auth_Token);
+    try{
+        const client: Twilio | undefined = await getTwilioClient(companyData)
 
-    const options: CallListInstanceCreateOptions = {
-        from: from,
-        to: `client:${number}`,
-        url,
-        record:true,
-        timeout,
+        const options: CallListInstanceCreateOptions = {
+            from: from,
+            to: `client:${number}`,
+            url,
+            record: true,
+            timeout,
+        }
+
+        if (urlEvent) {
+            options.statusCallbackMethod = 'POST'
+            options.statusCallback = urlEvent
+            options.statusCallbackEvent = statuses
+        }
+
+        client?.calls.create(options)
+
+        res.type("text/xml");
+        res.send(
+            connectConferenceTwiml({
+                callerId: from,
+                conferenceId: conferenceId,
+                startConferenceOnEnter: false,
+                endConferenceOnExit: true,
+            }));
     }
-
-
-    if (urlEvent) {
-        options.statusCallbackMethod = 'POST'
-        options.statusCallback = urlEvent
-        options.statusCallbackEvent = statuses
+    catch (e) {
+        console.log('Call ERROR: ',e)
+        res.status(500).send(e)
     }
-
-    client.calls.create(options)
-
-    res.type("text/xml");
-    res.send(
-        connectConferenceTwiml({
-            callerId:from,
-            conferenceId: conferenceId,
-            waitUrl: "",
-            startConferenceOnEnter: false,
-            endConferenceOnExit: true,
-        }));
 }

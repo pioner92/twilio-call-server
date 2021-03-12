@@ -2,7 +2,7 @@ import express = require("express");
 
 const router = express.Router();
 import {CallHandler} from "../../utils/call-handler";
-import {getCompanyFromName} from "../../utils/get-company/get-company";
+import {GetCompanyDataFromDb} from "../../schema-db/configDb";
 
 
 const promise = (interval: number) =>
@@ -14,14 +14,12 @@ const promise = (interval: number) =>
 
 // При входящем вызове проверка кому звонить
 router.post("/connect/:to/:from/:iter?", async (req: express.Request, res: express.Response) => {
-
         try {
             const to = req.params.to;
             const from = req.params.from;
             const isIter = req.params.iter
             const call: CallHandler = new CallHandler(req, res);
-            // let company = config.accounts.find((el: numbers) => el.name === to);
-            let company = getCompanyFromName(to)
+            let company = await GetCompanyDataFromDb.byName(to)
             // Звонок на всех диспетчеров этой компании
             if (company) {
                 const companyName = to
@@ -38,6 +36,7 @@ router.post("/connect/:to/:from/:iter?", async (req: express.Request, res: expre
             }
         } catch (e) {
             console.log("Connect ERROR !!!" + e);
+            res.status(500).send(e)
         }
     }
 );

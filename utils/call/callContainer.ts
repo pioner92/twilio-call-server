@@ -1,38 +1,71 @@
-import {getCompanyFromNumber} from "../get-company/get-company";
-import {call} from "./call";
-import {CallEvent} from "twilio/lib/rest/api/v2010/account/call";
-import express = require("express");
-import {urls} from "../../routes/urls";
-import {voiceMail} from "../voice-mail";
+import { call } from './call'
+import { CallEvent } from 'twilio/lib/rest/api/v2010/account/call'
+import { urls } from '../../routes/urls'
+import { voiceMail } from '../voice-mail'
+import { ConfigSchemaType } from '../../schema-db/config-schema-db'
+import express = require('express')
 
+export type statusType = 'iter' | 'agent' | 'hr'
 
-export type statusType = 'iter' | 'agent'
+const timeoutService = (status: statusType) => {
+    switch (status) {
+        case 'iter':
+            return 10
+            break
+        case 'agent':
+            return 15
+            break
+        case 'hr':
+            return 30
+            break
+        default:
+            return 15
+            break
+    }
+}
 
-
-export const callContainer = (res: express.Response, number: string, from: string, status: statusType, conferenceId: string) => {
-
+export const callContainer = async (
+    res: express.Response,
+    companyData: ConfigSchemaType | undefined,
+    number: string,
+    from: string,
+    status: statusType,
+    conferenceId: string
+) => {
     const statuses: CallEvent = 'completed'
 
-    const urlGeneration = (number: string, callerId: string, conferenceId: string) => `${urls.url}/connect_to_agent/${number}/${callerId}/${conferenceId}`
+    const connectToAgentLink = (
+        number: string,
+        callerId: string,
+        conferenceId: string
+    ) => `${urls.url}/connect_to_agent/${callerId}/${conferenceId}`
 
-    const urlEventGeneration = (from: string, conferenceId: string) => `${urls.url}/status_event/${from}/${conferenceId}`
+    const statusEventLink = (
+        companyName: string,
+        from: string,
+        conferenceId: string
+    ) => `${urls.url}/status_event/${companyName}/${from}/${conferenceId}`
 
-    const company = getCompanyFromNumber(number)
+    if (companyData) {
+        const callerId = companyData!.company_number
+        const urlEvent = statusEventLink(companyData.name, from, conferenceId)
+        const url = connectToAgentLink(number, callerId, conferenceId)
+        const timeout = timeoutService(status)
 
-
-    if (company) {
-        const callerId = company!.voice_assistant_number
-        const auth = {Account_Sid: company!.Account_Sid, Auth_Token: company!.Auth_Token}
-        const urlEvent = urlEventGeneration(from, conferenceId)
-        const url = urlGeneration(number, callerId, conferenceId)
-        const timeout = status === 'iter' ? 10 : 15
-
-        call({res, from, auth, number, urlEvent, url, statuses, timeout, callerId, conferenceId})
-
+        call({
+            res,
+            from,
+            companyData,
+            number,
+            urlEvent,
+            url,
+            statuses,
+            timeout,
+            callerId,
+            conferenceId,
+        })
     } else {
         res.type('text/xml')
         res.send(voiceMail())
     }
-};
-
-
+}

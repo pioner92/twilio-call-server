@@ -1,18 +1,26 @@
 import express = require("express");
-import {fileType, readConfig, readSyncConfig} from "../../utils/read-write-config";
+import {GetCompanyDataFromDb} from "../../schema-db/configDb";
+import {companyNameValidate} from "../../utils/companyNameValidate";
+
 const router = express.Router();
 
 router.get('/:name',async (req:express.Request,res:express.Response)=>{
+
+    const name = companyNameValidate(req.params.name)
+
     try {
-        const file: fileType =  readSyncConfig();
-        const company = file.accounts.find((el) => el.name === req.params.name);
-        res.json({data: company?.numbers_available});
+        const company = await GetCompanyDataFromDb.byName(name)
+        if (company) {
+            res.json({data: company?.numbers_available});
+        }
+        else {
+            res.json({msg:"Company not found !"});
+        }
     }
     catch (e) {
         console.log('Get available dispatchers ERROR: ',e)
         res.json({error:e})
     }
 })
-
 
 module.exports = router

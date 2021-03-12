@@ -1,5 +1,5 @@
 import {io} from "../twilio_call_widget";
-import {eventBodyType} from "../routes/status-event/status-event";
+import {SocketConnectionsService} from "../store/socket-connections-service";
 
 type propsType = {
     link:string
@@ -25,8 +25,8 @@ export const sendRecordLink = ({link,from,to,status,direction,duration}:propsTyp
             direction,
             duration
         }
-        console.log(data)
-        io.emit("message_link", data);
+        const socketId = SocketConnectionsService.get({from,to})?.socketId
+        socketId && io.to(socketId).emit('message_link', data)
     }
     catch (e){
         console.log('Send Record Link ERROR')

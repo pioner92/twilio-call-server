@@ -38,7 +38,6 @@ router.post('/', (req: express.Request, res: express.Response) => {
         //@ts-ignore
         const body = req.body as getCallResourceResponseType
         if (body.Called && body.Caller) {
-            console.log(body)
         }
 
         res.type('text/xml')

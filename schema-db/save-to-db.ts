@@ -1,6 +1,4 @@
-// @ts-ignore
-import SchemaDb from './schema-db';
-import {SchemaType} from "./schema-db";
+import SchemaDb, {SchemaType} from './schema-db';
 
 type SaveDbType = (arg: SchemaType) => void
 

@@ -5,8 +5,7 @@ export type accountsType = {
     Account_Sid: string
     Auth_Token: string
     APP_SID: string
-    voice_assistant_number: string
-    hidden_number: string
+    company_number: string
     dispatcher_numbers: string[]
     numbers_available: string[]
 }

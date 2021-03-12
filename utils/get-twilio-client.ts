@@ -1,10 +1,7 @@
 import {Twilio} from "twilio";
-import {getCompanyFromNumber} from "./get-company/get-company";
+import {ConfigSchemaType} from "../schema-db/config-schema-db";
 
-export const getTwilioClient = (from:string) => {
-    console.log(from)
-    const company = getCompanyFromNumber(from)
-    console.log(company)
+export const getTwilioClient = async (company:ConfigSchemaType|undefined) => {
     if(company){
         return  require('twilio')(company.Account_Sid, company.Auth_Token) as Twilio
     }

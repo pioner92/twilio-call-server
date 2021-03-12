@@ -1,12 +1,9 @@
 import express from "express";
 import SchemaDb from "./schema-db/schema-db";
 import {urls} from "./routes/urls";
-import {getCompanyFromName} from "./utils/get-company/get-company";
 import VoiceResponse from "twilio/lib/twiml/VoiceResponse";
+import {GetCompanyDataFromDb} from "./schema-db/configDb";
 
-
-// require('dotenv').config()
-// require('dotenv').config({path: "./dotenv-sandbox"})
 
 const dataDb = require('./dataDb.json')
 const fileUpload = require("express-fileupload");
@@ -14,6 +11,8 @@ const path = require("path");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
+mongoose.set('useFindAndModify', true);
+mongoose.set('useNewUrlParser', true);
 
 const ms = require("mediaserver");
 const cors = require("cors");
@@ -22,7 +21,12 @@ const app = express();
 app.use(fileUpload())
 
 const http = require("http").createServer(app);
-export const io = require("socket.io")(http);
+import socket from 'socket.io'
+import {SocketConnectionsService} from "./store/socket-connections-service";
+import request from "request";
+import {sendPush} from "./utils/send-push";
+
+export const io = socket(http);
 
 app.use(cors());
 app.set("views", path.join(__dirname, "views"));
@@ -33,9 +37,9 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(cookieParser());
 
 const token = require("./routes/token/token");
+const tokenMobile = require('./routes/token/token-mobile')
 const connect = require("./routes/connect/connect");
 const call = require("./routes/call/call");
-const company = require("./routes/set-companyis-list/set-companies-list");
 const connectToConference = require('./routes/connect-to-conference/connect-to-conference')
 const statusEvent = require('./routes/status-event/status-event')
 const fax = require('./routes/fax/fax')
@@ -45,12 +49,12 @@ const callToDispatcher = require('./routes/call-to-dispathcer/call-to-dispatcher
 const dialCalStatus = require('./routes/dial-call-status/dial-call-status')
 const recordingLink = require('./routes/record-link-voice-mail/record-link-voice-mail')
 const getCallResource = require('./routes/get-call-resource/get-call-resource')
+const isAvailable = require('./routes/is-available/is-available')
 
-// export const URL = 'https://sms.green-node.ru'
-// export const URL = "https://1a5913e5d258.ngrok.io";
 
 // Генерация токена
 app.use(`${urls.token}`, token);
+app.use(`${urls.token}`, tokenMobile);
 
 // Хук на номера диспетчеров
 app.use(`${urls.dispatcher}`, connect);
@@ -58,8 +62,6 @@ app.use(`${urls.dispatcher}`, connect);
 // Исходящий звонок
 app.use(`${urls.call}`, call);
 
-// Доавить / Удалить компанию из конфига
-app.use(`${urls.setCompany}`, company);
 
 // Первый звонок на диспетчера
 app.use(`${urls.callToDispatcher}`, callToDispatcher)
@@ -74,10 +76,13 @@ app.use(`${urls.statusEvent}`, statusEvent)
 app.use(`${urls.fax}`, fax)
 
 // Получить диспетчера
-app.use(`${urls.getDispatcher}`, getDispatcher)
+app.use(`${urls.getDispatchersList}`, getDispatcher)
+
+// is Available
+app.use(`${urls.isAvailable}`,isAvailable)
 
 // Добавить / Удалить диспетчера
-app.use(`${urls.setDispatchers}`, setDispatcher)
+app.use(`${urls.setDispatchersList}`, setDispatcher)
 
 // Событие исходящего звонка
 app.use(`${urls.dialCallStatus}`, dialCalStatus)
@@ -106,10 +111,22 @@ app.use("/get_logs", async (req: express.Request, res: express.Response) => {
     res.json({data});
 });
 
-app.get('/get_company_data/:name', (req: express.Request, res: express.Response) => {
+app.get('/get_company_data/:name', async (req: express.Request, res: express.Response) => {
     const name = req.params.name
-    const company = getCompanyFromName(name)
-    res.json({company})
+    const company = await GetCompanyDataFromDb.byName(name)
+    if (company) {
+        const {dispatcher_numbers, numbers_available, name, fax, company_number} = company
+        res.json({
+            company: {
+                dispatcher_numbers,
+                numbers_available,
+                name,
+                fax, company_number
+            }
+        })
+    } else {
+        res.json({company: {}})
+    }
 })
 
 app.post('/send_fax', (req: express.Request, res: express.Response) => {
@@ -134,14 +151,27 @@ app.post('/fax/received', (req: express.Request, res: express.Response) => {
 app.use('/ring_signal/play', (req: express.Request, res: express.Response) => {
     const twiml = new VoiceResponse()
     twiml.play({
-        loop:10
-    },'https://zvukogram.com/mp3/862/30-sekund-ojidaniya-poka-vozmut-trubku-na-tom-kontse-provoda-9356.mp3')
+        loop: 10
+    }, 'https://zvukogram.com/mp3/862/30-sekund-ojidaniya-poka-vozmut-trubku-na-tom-kontse-provoda-9356.mp3')
 
     res.type('text/xml')
     res.send(twiml.toString())
 })
 
 app.get('/send_fax', async (req: express.Request, res: express.Response) => {
+
+    request({
+        url: 'https://platform.devtest.ringcentral.com/restapi/oauth/token',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': "Basic " + Buffer.from('RbDRF21qQhGeybXoqvZgKw:GscccBwjR7yyoqiMaKeWXgHc9PNX3lTeStSE6qJgJLew').toString('base64')
+        },
+        body: "username=+19294682791&password=IVRZvonilka1&extension=101&grant_type=authorization_code",
+        method: 'POST'
+    }, (er, req, body) => {
+        console.log(req)
+    })
 
     res.json('ok')
 })
@@ -167,20 +197,14 @@ type socketDataType = {
     duration: number;
 };
 
-io.on("connection", (socket: any) => {
+
+io.on("connection", (socket) => {
     console.log("Connect");
-    socket.on("status", (data: socketDataType) => {
-        // console.log(data);
-        if (data?.name) {
-            // writeToLog(data.name, data?.From || 'dispatcher', data?.To, data?.status, data?.duration);
-        }
-        if (data?.status === "answered") {
-            isConnected = true;
-            console.log('Stop')
-        }
-        console.log("Stop");
-    });
+
+    const {number, company} = socket.handshake.query || {}
+    SocketConnectionsService.add({number, company, socketId: socket.client.id})
 });
+
 
 const start = async () => {
     try {
@@ -199,6 +223,8 @@ const start = async () => {
         console.log(e);
     }
 };
+
+sendPush()
 
 start();
 

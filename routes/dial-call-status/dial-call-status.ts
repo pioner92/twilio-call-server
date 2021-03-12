@@ -1,5 +1,6 @@
 import express = require("express");
 import {direction, sendRecordLink} from "../../utils/send-record-link";
+
 const router = express.Router();
 
 type statusType = 'completed' | 'answered' | 'busy' | 'no-answer' | 'failed' | 'canceled'
@@ -31,15 +32,22 @@ type dialNumberCallStatusType = {
 
 router.post('/:from',(req:express.Request,res:express.Response)=>{
     try {
+
         const from = req.params.from || 'client:null'
-        //@ts-ignore
-        const {body} : {body:dialNumberCallStatusType} = req
-        const {RecordingUrl:link,From,To:to,CallStatus:status,Duration}  = body
-        console.log(body)
-        sendRecordLink({link,from:from.slice(7),to,status,direction:direction.outgoing,duration:Duration})
+        const fromMatch = from.match(/([0-9].+)./)
+        if(fromMatch){
+            //@ts-ignore
+            const {body} : {body:dialNumberCallStatusType} = req
+            const {RecordingUrl:link,From,To:to,CallStatus:status,Duration}  = body
+            // sendRecordLink({link,from:from.slice(7),to,status,direction:direction.outgoing,duration:Duration})
+            sendRecordLink({link,from:fromMatch[0],to,status,direction:direction.outgoing,duration:Duration})
+        }
+        res.status(200).send('ok')
     }
     catch (e){
-        console.log('Dial call status ERROR: ',e)
+        console.log('DialCallStatus Error')
+        console.log(e)
+        res.status(500).send(e)
     }
 })
 

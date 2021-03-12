@@ -1,47 +1,47 @@
-import express = require('express');
-import fs from 'fs'
-import {readSyncConfig} from "../../utils/read-write-config";
+import express = require('express')
+import { GetCompanyDataFromDb } from '../../schema-db/configDb'
+import { companyNameValidate } from '../../utils/companyNameValidate'
 
-const router = express.Router();
+const router = express.Router()
 const ClientCapability = require('twilio').jwt.ClientCapability
 
+router.get(
+    '/generate/:name/:number',
+    async (req: express.Request, res: express.Response) => {
+        try {
+            let companyName: string = companyNameValidate(req.params.name)
 
-interface numbers {
-    dispatcher_numbers: string[]
-}
+            const company = await GetCompanyDataFromDb.byName(companyName)
 
-router.get('/generate/:name', (req: express.Request, res: express.Response) => {
-    try {
-        let company = readSyncConfig().accounts.find((el: numbers) => el.dispatcher_numbers.includes(req.params.name))
+            if (company?.numbers_available.includes(req.params.number)) {
+                const accountSid = company?.Account_Sid
+                const authToken = company?.Auth_Token
+                const applicationSid = company?.APP_SID
+                const capability = new ClientCapability({
+                    accountSid,
+                    authToken,
+                })
 
-        if(company){
-            const data = fs.readFileSync('./config.json',
-                {encoding:'utf8', flag:'r'});
-            console.log(JSON.parse(data).accounts[0])
-            const accountSid: string = company?.Account_Sid || 'null'
-            const authToken: string = company?.Auth_Token || 'null'
-            const applicationSid: string = company?.APP_SID || 'null'
-            const capability = new ClientCapability({accountSid, authToken})
-
-            capability.addScope(new ClientCapability.OutgoingClientScope({applicationSid}));
-            capability.addScope(new ClientCapability.IncomingClientScope(req.params.name.toString()))
-
-            const token: string = capability.toJwt()
-
-            res.set('Content-Type', 'application/json')
-            res.send(JSON.stringify({token: token}))
+                capability.addScope(
+                    new ClientCapability.OutgoingClientScope({ applicationSid })
+                )
+                capability.addScope(
+                    new ClientCapability.IncomingClientScope(
+                        req.params.number.toString()
+                    )
+                )
+                const token = capability.toJwt()
+                res.set('Content-Type', 'application/json')
+                res.json({ token: token })
+            } else {
+                res.set('Content-Type', 'application/json')
+                res.send({ token: '' })
+            }
+        } catch (e) {
+            console.log('Token generate ERROR: ', e)
+            res.status(500).send(e)
         }
-        else {
-            res.set('Content-Type', 'application/json')
-            res.send(JSON.stringify({token: ''}))
-        }
-
-
-    } catch (e) {
-        console.log('Token generate Error ' + e)
-        res.status(500).json({error:e})
     }
+)
 
-})
-
-module.exports = router;
+module.exports = router

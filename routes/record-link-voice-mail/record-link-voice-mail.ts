@@ -1,6 +1,5 @@
 import express = require("express");
 import {direction, sendRecordLink} from "../../utils/send-record-link";
-import {getTwilioClient} from "../../utils/get-twilio-client";
 import VoiceResponse from "twilio/lib/twiml/VoiceResponse";
 
 const router = express.Router();
@@ -38,13 +37,10 @@ type responseType = {
     ToZip: '15558'
 }
 
-const CallSidService = require('../../store/call-sid-service')
 
 router.get(`/`, (req: express.Request, res: express.Response) => {
-
     try{
         const data = req.query as responseType
-
         if ('From' in data) {
             sendRecordLink({
                 link: data.RecordingUrl,
@@ -60,9 +56,8 @@ router.get(`/`, (req: express.Request, res: express.Response) => {
         res.send(twiml.toString())
     }catch (e){
         console.log('Record link voiceMail ERROR: ',e)
-        res.send('ERROR')
+        res.status(500).send(e)
     }
-
 })
 
 module.exports = router
