@@ -6,7 +6,7 @@
   "scripts": {
     "start": "nodemon twilio_call_widget.js",
     "clear-build": "rm -rf ./dist",
-    "git-deploy": "git add . && git commit -m 'fix' && git push origin master",
+    "git-deploy": "git add . && git commit -m 'fix' && git push",
     "prod-pull": "node scripts/pull.ts",
     "build": "npx babel ./ --out-dir dist --ignore 'node_modules','*.json' ",
     "prod-build": "node ./scripts/prebuild.js",
