@@ -5,10 +5,12 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon twilio_call_widget.js",
-    "clear-build" : "rm -rf ./dist",
+    "clear-build": "rm -rf ./dist",
     "git-deploy": "git add . && git commit -m 'fix' && git push origin master",
+    "prod-pull": "node scripts/pull.ts",
     "build": "npx babel ./ --out-dir dist --ignore 'node_modules','*.json' ",
     "prod-build": "node ./scripts/prebuild.js",
+    "prod-deploy": "npm run prod-build && npm run git-deploy && npm run prod-pull",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -42,6 +44,7 @@
     "moment": "^2.29.1",
     "mongoose": "^5.10.8",
     "node-fetch": "^2.6.1",
+    "node-ssh": "^11.1.1",
     "nodemon": "^2.0.4",
     "react-native-gifted-chat": "^0.16.3",
     "request": "^2.88.2",

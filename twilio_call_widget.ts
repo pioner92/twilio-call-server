@@ -22,7 +22,6 @@ app.use(fileUpload())
 const http = require('http').createServer(app)
 import socket from 'socket.io'
 import { SocketConnectionsService } from './store/socket-connections-service'
-import request from 'request'
 
 export const io = socket(http)
 
