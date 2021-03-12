@@ -185,7 +185,6 @@ type socketDataType = {
 
 io.on('connection', (socket) => {
     console.log('Connect')
-
     const { number, company } = socket.handshake.query || {}
     SocketConnectionsService.add({
         number,
@@ -211,5 +210,4 @@ const start = async () => {
         console.log(e)
     }
 }
-
 start()
